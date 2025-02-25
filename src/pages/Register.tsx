@@ -17,7 +17,7 @@ const Register = () => {
       alert("Registrasi berhasil, silakan login!");
       navigate("/login");
     } catch (error) {
-      alert("Registrasi gagal, periksa kembali inputan!");
+      alert(`Registrasi gagal, periksa kembali inputan! (${error})`);
     }
   };
 
