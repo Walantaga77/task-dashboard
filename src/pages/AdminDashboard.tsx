@@ -16,7 +16,11 @@ const AdminDashboard = () => {
     console.log("📌 Stored Token:", token);
     console.log("📌 Stored User ID:", userId);
 
-    if (!token || !userId || parseInt(userId, 10) !== 1) {
+    if (
+      !token ||
+      !userId ||
+      (parseInt(userId, 10) !== 1 && parseInt(userId, 10) !== 2)
+    ) {
       console.warn("⛔ Akses ditolak! Redirecting to /dashboard...");
       navigate("/dashboard");
       return;
