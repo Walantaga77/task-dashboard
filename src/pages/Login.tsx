@@ -33,8 +33,8 @@ const Login = () => {
         localStorage.setItem("userId", loggedInUser.id);
         console.log("✅ User ditemukan:", loggedInUser);
 
-        // Step 3: Cek apakah user adalah Admin (id = 1)
-        if (loggedInUser.id === 1) {
+        // Step 3: Cek apakah user adalah Admin(id = 1) atau manajer(id = 2)
+        if (loggedInUser.id === 1 || loggedInUser.id === 2) {
           console.log("🟢 User adalah ADMIN, redirect ke /admin");
           navigate("/admin");
         } else {
