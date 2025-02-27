@@ -44,7 +44,7 @@ const PostTable = () => {
   };
 
   const confirmDelete = () => {
-    console.log("Modal status:", isConfirmModalOpen);
+    console.log("berhasil menghapus task!", isConfirmModalOpen);
     if (postToDelete !== null) {
       deleteMutation.mutate(postToDelete);
     }
