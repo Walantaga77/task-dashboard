@@ -5,7 +5,15 @@ import { FiLogOut, FiHome } from "react-icons/fi";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<
+    Array<{
+      id: number;
+      first_name: string;
+      last_name: string;
+      email: string;
+      avatar: string;
+    }>
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
