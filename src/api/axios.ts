@@ -1,7 +1,7 @@
 import axios from "axios";
 const token = localStorage.getItem("token");
 const api = axios.create({
-  baseURL: "https://reqres.in/api",
+  baseURL: "mongodb+srv://ramadani45697:mVMYqa5k5VQ5jGjr@cluster0.uxamg.mongodb.net/taskApp?retryWrites=true&w=majority",
   headers: {
     "Content-Type": "application/json",
     Authorization: token ? `Bearer ${token}` : "",

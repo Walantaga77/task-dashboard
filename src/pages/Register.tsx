@@ -3,16 +3,20 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const Register = () => {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("user"); // Default role: user
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post("https://reqres.in/api/register", {
+      await axios.post("http://localhost:5002/api/auth/register", {
+        name,
         email,
         password,
+        role,
       });
       alert("Registrasi berhasil, silakan login!");
       navigate("/login");
@@ -29,6 +33,14 @@ const Register = () => {
         </h2>
         <form onSubmit={handleRegister} className="mt-4 space-y-4">
           <input
+            type="text"
+            placeholder="Name"
+            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <input
             type="email"
             placeholder="Email"
             className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
@@ -39,11 +51,24 @@ const Register = () => {
           <input
             type="password"
             placeholder="Password"
-            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-5000"
+            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+
+          {/* Dropdown Role */}
+          <select
+            className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            required
+          >
+            <option value="user">User</option>
+            <option value="manager">Manager</option>
+            <option value="admin">Admin</option>
+          </select>
+
           <button
             type="submit"
             className="w-full bg-blue-500 text-white py-3 rounded-md hover:bg-blue-700 transition"

@@ -5,13 +5,29 @@ import UpdatePost from "./UpdatePost";
 import ConfirmModal from "./ConfirmModal";
 
 interface Post {
-  id: number;
+  _id: string;
   title: string;
-  body: string;
+  description: string;
+  status: string;
+  dueDate: string;
+  priority: string;
+  assignee: { _id: string; name: string; email: string };
 }
 
+// ✅ Fetch Tasks (GET Request)
 const fetchPosts = async (): Promise<Post[]> => {
-  const res = await fetch("https://jsonplaceholder.typicode.com/posts");
+  const token = localStorage.getItem("token");
+  const res = await fetch("http://localhost:5002/api/tasks", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Gagal mengambil data task");
+  }
+
   return res.json();
 };
 
@@ -26,45 +42,53 @@ const PostTable = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState("id");
+  const [sortField, setSortField] = useState("title");
   const [sortOrder, setSortOrder] = useState("asc");
-  const [titleLength, setTitleLength] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [postToDelete, setPostToDelete] = useState<number | null>(null);
+  const [postToDelete, setPostToDelete] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const handleDeleteClick = (id: number) => {
-    console.log("Klik hapus untuk ID:", id);
+  const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const token = localStorage.getItem("token");
+      await fetch(`http://localhost:5002/api/tasks/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      setIsConfirmModalOpen(false);
+    },
+  });
+
+  const handleDeleteClick = (id: string) => {
     setPostToDelete(id);
     setIsConfirmModalOpen(true);
   };
 
   const confirmDelete = () => {
-    console.log("Modal status:", isConfirmModalOpen);
     if (postToDelete !== null) {
       deleteMutation.mutate(postToDelete);
     }
   };
 
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await fetch(`https://jsonplaceholder.typicode.com/posts/${id}`, {
-        method: "DELETE",
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] }); // Refresh data
-      setIsConfirmModalOpen(false); // Tutup modal setelah sukses
-    },
-  });
-
-  // Search + Sorting + Filtering
+  const resetFilters = () => {
+    setSearchTerm("");
+    setSortField("title");
+    setSortOrder("asc");
+    setCurrentPage(1);
+    setItemsPerPage(10);
+  };
 
   const filteredPosts = useMemo(() => {
     if (!posts) return [];
@@ -73,10 +97,17 @@ const PostTable = () => {
       .filter((post) =>
         post.title.toLowerCase().includes(searchTerm.toLowerCase())
       )
-      .filter((post) => post.title.length >= titleLength)
       .sort((a, b) => {
-        const valueA = a[sortField as keyof Post] as string | number;
-        const valueB = b[sortField as keyof Post] as string | number;
+        const valueA =
+          typeof a[sortField as keyof Post] === "object"
+            ? JSON.stringify(a[sortField as keyof Post])
+            : (a[sortField as keyof Post] as string | number);
+
+        const valueB =
+          typeof b[sortField as keyof Post] === "object"
+            ? JSON.stringify(b[sortField as keyof Post])
+            : (b[sortField as keyof Post] as string | number);
+
         return sortOrder === "asc"
           ? valueA > valueB
             ? 1
@@ -85,9 +116,8 @@ const PostTable = () => {
           ? 1
           : -1;
       });
-  }, [posts, searchTerm, sortField, sortOrder, titleLength]);
+  }, [posts, searchTerm, sortField, sortOrder]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredPosts.length / itemsPerPage);
   const paginatedPosts = filteredPosts.slice(
     (currentPage - 1) * itemsPerPage,
@@ -96,46 +126,55 @@ const PostTable = () => {
 
   return (
     <div>
+      {/* Modals */}
+      {isEditModalOpen && selectedPost && (
+        <UpdatePost
+          post={selectedPost}
+          onClose={() => setIsEditModalOpen(false)}
+          onUpdate={() =>
+            queryClient.invalidateQueries({ queryKey: ["posts"] })
+          }
+        />
+      )}
+      {isCreateModalOpen && (
+        <CreatePost onClose={() => setIsCreateModalOpen(false)} />
+      )}
       <ConfirmModal
         isOpen={isConfirmModalOpen}
         onClose={() => setIsConfirmModalOpen(false)}
         onConfirm={confirmDelete}
       />
-      ;
+
       {isLoading ? (
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-blue-500"></div>
-          <p className="ml-3">Mohon tunggu...</p>
-        </div>
+        <p className="text-center">Loading tasks...</p>
       ) : isError ? (
-        <p className="text-center text-red-500">Error fetching posts!</p>
+        <p className="text-center text-red-500">Error fetching tasks!</p>
       ) : (
-        <div className="p-5 bg-white shadow-md rounded-lg">
-          <h2 className="text-2xl font-bold text-center mb-4 text-black">
+        <div className="p-5 bg-white shadow-md rounded-lg dark:bg-gray-800">
+          <h2 className="text-2xl font-bold text-center mb-4 text-black dark:text-white">
             Task Management
           </h2>
+
           {/* Controls */}
           <div className="flex flex-wrap gap-3 mb-4">
-            {/* Search */}
             <input
               type="text"
               placeholder="Search title..."
-              className="border p-2 rounded w-1/3 bg-gray-500"
+              className="border-2 p-2 rounded w-1/3 bg-white text-gray-700"
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1);
               }}
             />
-
-            {/* Sorting */}
             <select
-              className="border p-2 rounded bg-gray-500"
+              className="border-2 p-2 rounded bg-white text-black"
               value={sortField}
               onChange={(e) => setSortField(e.target.value)}
             >
-              <option value="id">Sort by ID</option>
               <option value="title">Sort by Title</option>
+              <option value="priority">Sort by Priority</option>
+              <option value="dueDate">Sort by Due Date</option>
             </select>
             <button
               className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-700"
@@ -143,142 +182,120 @@ const PostTable = () => {
             >
               {sortOrder === "asc" ? "⬆ Ascending" : "⬇ Descending"}
             </button>
-
-            {/* Reset Search */}
             <button
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700"
-              onClick={() => {
-                setSearchTerm("");
-                setTitleLength(0);
-                setSortField("id");
-                setSortOrder("asc");
-                setCurrentPage(1);
-              }}
+              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700"
+              onClick={() => setIsCreateModalOpen(true)}
             >
-              Reset
+              + Create Task
             </button>
-
-            {/* Pagination Dropdown */}
+            <button
+              className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"
+              onClick={resetFilters}
+            >
+              Reset Filter
+            </button>
+            <label
+              htmlFor="itemsPerPage"
+              className="text-gray-700 dark:text-white"
+            >
+              Show Item:
+            </label>
             <select
-              className="border p-2 rounded bg-gray-500"
+              id="itemsPerPage"
               value={itemsPerPage}
               onChange={(e) => {
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
+              className="border p-2 rounded bg-gray-700 text-white"
             >
-              <option value={10}>Show 10</option>
-              <option value={25}>Show 25</option>
-              <option value={50}>Show 50</option>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
             </select>
-
-            {/* Tombol Create Task di sebelah Dropdown */}
-            <button
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-700"
-              onClick={() => setIsModalOpen(true)} // ✅ Modal terbuka saat tombol diklik
-            >
-              + Create Task
-            </button>
           </div>
-          {/* Modal Pop-up create task */}
-          {isModalOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-              <div className="bg-white p-6 rounded shadow-lg w-1/3">
-                <h2 className="text-xl font-bold mb-4">Create Task</h2>
-                <CreatePost onClose={() => setIsModalOpen(false)} />
-                <button
-                  className="bg-red-500 text-white px-4 py-2 rounded mt-4 hover:bg-red-700"
-                  onClick={() => setIsModalOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          )}
-          // Tampilkan modal UpdatePost
-          {isEditModalOpen && selectedPost && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center">
-              <div className="bg-white p-6 rounded shadow-lg w-1/3">
-                <h2 className="text-xl font-bold mb-4">Edit Task</h2>
-                <UpdatePost
-                  post={selectedPost}
-                  onClose={() => setIsEditModalOpen(false)}
-                />
-              </div>
-            </div>
-          )}
+
           {/* Table */}
-          <table className="w-full border-collapse border border-gray-300 min-h-screen">
+          <table className="w-full border-collapse border border-gray-300">
             <thead>
-              <tr className="bg-blue-500 text-white">
-                <th className="border p-3">ID</th>
+              <tr className="bg-blue-500 text-white dark:bg-gray-700">
                 <th className="border p-3">Title</th>
-                <th className="border p-3">Body</th>
+                <th className="border p-3">Description</th>
+                <th className="border p-3">Status</th>
+                <th className="border p-3">DueDate</th>
+                <th className="border p-3">Priority</th>
+                <th className="border p-3">Assignee</th>
                 <th className="border p-3 text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="min-h-screen">
+            <tbody>
               {paginatedPosts.length > 0 ? (
                 paginatedPosts.map((post) => (
                   <tr
-                    key={post.id}
-                    className="text-center hover:bg-gray-100 transition text-black"
+                    key={post._id}
+                    className="text-center hover:bg-gray-100 transition text-black dark:text-white dark:hover:bg-gray-700"
                   >
-                    <td className="border p-3">{post.id}</td>
                     <td className="border p-3">{post.title}</td>
-                    <td className="border p-3">{post.body}</td>
-                    <td className="border p-3 text-center">
-                      <div className="flex justify-center gap-3">
-                        <button
-                          className="bg-yellow-500 text-white px-2 py-1 rounded hover:bg-yellow-700"
-                          onClick={() => {
-                            setSelectedPost(post);
-                            setIsEditModalOpen(true);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700 ml-2"
-                          onClick={() => handleDeleteClick(post.id)}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                    <td className="border p-3">{post.description}</td>
+                    <td className="border p-3">{post.status}</td>
+                    <td className="border p-3">
+                      {new Date(post.dueDate).toLocaleDateString("id-ID", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="border p-3">{post.priority}</td>
+                    <td className="border p-3">{post.assignee?.name}</td>
+                    <td className="border p-3 text-center flex justify-center gap-2">
+                      <button
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-700"
+                        onClick={() => {
+                          setSelectedPost(post);
+                          setIsEditModalOpen(true);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700"
+                        onClick={() => handleDeleteClick(post._id)}
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={3} className="text-center text-red-500 p-3">
-                    No posts found.
+                  <td colSpan={7} className="text-center text-red-500 p-3">
+                    No tasks found.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-          {/* Pagination */}
-          <div className="flex justify-between items-center mt-3">
+
+          {/* Pagination Controls */}
+          <div className="flex justify-between items-center mt-4">
             <button
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              className={`px-3 py-1 border rounded ${
+              className={`px-4 py-2 border rounded ${
                 currentPage === 1 ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
               Prev
             </button>
-
-            <span>
+            <span className="text-gray-700 dark:text-white">
               Page {currentPage} of {totalPages}
             </span>
-
             <button
               onClick={() =>
                 setCurrentPage((prev) => Math.min(prev + 1, totalPages))
               }
               disabled={currentPage === totalPages}
-              className={`px-3 py-1 border rounded ${
+              className={`px-4 py-2 border rounded ${
                 currentPage === totalPages
                   ? "opacity-50 cursor-not-allowed"
                   : ""

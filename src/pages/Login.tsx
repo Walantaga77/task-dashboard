@@ -10,44 +10,53 @@ const Login = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Step 1: Kirim login request ke API
-      const response = await axios.post("https://reqres.in/api/login", {
-        email,
-        password,
-      });
-
-      const token = response.data.token;
-      localStorage.setItem("token", token);
-      localStorage.setItem("email", email);
-
-      console.log("✅ Login berhasil, token:", token);
-
-      // Step 2: Ambil daftar user untuk mendapatkan ID berdasarkan email login
-      const usersResponse = await axios.get("https://reqres.in/api/users");
-      const users = usersResponse.data.data;
-      const loggedInUser = users.find(
-        (user: { email: string }) => user.email === email
+      const response = await axios.post(
+        "http://localhost:5002/api/auth/login",
+        {
+          email,
+          password,
+        }
       );
 
-      if (loggedInUser) {
-        localStorage.setItem("userId", loggedInUser.id);
-        console.log("✅ User ditemukan:", loggedInUser);
+      console.log("✅ Response dari backend:", response.data);
 
-        // Step 3: Cek apakah user adalah Admin(id = 1) atau manajer(id = 2)
-        if (loggedInUser.id === 1 || loggedInUser.id === 2) {
-          console.log("🟢 User adalah ADMIN, redirect ke /admin");
-          navigate("/admin");
-        } else {
-          console.log("🔵 User biasa, redirect ke /dashboard");
-          navigate("/dashboard");
-        }
-      } else {
-        console.warn("⚠ User tidak ditemukan dalam daftar API.");
-        alert("Login gagal: User tidak ditemukan!");
+      // 🔹 Gunakan optional chaining untuk mencegah error jika response tidak lengkap
+      const token = response.data?.token;
+      const role = response.data?.role;
+      const userEmail = response.data?.email;
+
+      if (!token || !role || !userEmail) {
+        console.error("❌ Data login tidak lengkap!", response.data);
+        alert("Terjadi kesalahan, coba lagi.");
+        return;
       }
-    } catch (error) {
-      console.error("❌ Login gagal:", error);
-      alert(`Login gagal, periksa kembali email dan password! (${error})`);
+
+      // Simpan data login ke localStorage
+      localStorage.setItem("email", userEmail);
+      localStorage.setItem("token", token);
+      localStorage.setItem("role", role);
+
+      console.log("✅ Login berhasil! Email:", userEmail, "Role:", role);
+
+      // 🔹 Redirect berdasarkan role
+      if (role === "admin") {
+        console.log("🟢 Redirecting to /admin");
+        navigate("/admin");
+      } else {
+        console.log("🔵 Redirecting to /dashboard");
+        navigate("/dashboard");
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error("❌ Login gagal:", error.response?.data || error.message);
+        alert(`Login gagal! ${error.response?.data?.message || error.message}`);
+      } else if (error instanceof Error) {
+        console.error("❌ Unexpected error:", error.message);
+        alert(`Terjadi kesalahan: ${error.message}`);
+      } else {
+        console.error("❌ Unknown error:", error);
+        alert("Terjadi kesalahan yang tidak diketahui.");
+      }
     }
   };
 
